@@ -1,0 +1,4 @@
+wekefilesystem-server/node_modules
+wekefilesystem-server/node_modules/*
+wekefilesystem-client/node_modules
+wekefilesystem-client/node_modules/*

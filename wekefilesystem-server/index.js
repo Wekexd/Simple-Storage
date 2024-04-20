@@ -7,16 +7,25 @@ const folderPath = 'files';
 const app = express();
 
 // multer conf
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'files/');
+// const storage = multer.diskStorage({
+//     destination: (req, file, cb) => {
+//         cb(null, 'files/');
+//     },
+//     filename: (req, file, cb) => {
+//         cb(null, file.originalname);
+//     },
+// });
+
+var storage = multer.diskStorage({
+    destination: function (req, file, callback) {
+        callback(null, 'files/');
     },
-    filename: (req, file, cb) => {
-        cb(null, file.originalname);
-    },
+    filename: function (req, file, callback) {
+        callback(null, file.originalname);
+    }
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
 
 app.get('/api/getfoldercontent/:path', (req, res) => {
     res.setHeader('Access-Control-Allow-Origin','*');
@@ -78,12 +87,12 @@ app.get('/api/getfoldercontent/:path', (req, res) => {
     });
 });
 
-app.post('/api/upload', upload.array('file'), (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+app.post('/api/upload/', upload.array('file'), (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin','*');
+    if (req.files.length === 0) {
+        return res.status(400).json({ error: 'No file uploaded' });
     }
-    console.log(req.body);
-    res.json({ message: 'File uploaded successfully', filename: req.file.filename });
+    res.status(200);
 });
 
 app.get('/api/openfile/:path', (req, res) => {

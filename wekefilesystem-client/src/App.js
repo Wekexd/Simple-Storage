@@ -2,6 +2,7 @@ import File from './assets/File.js';
 import NoFile from './assets/NoFile.js';
 import LoadingFile from './assets/LoadingFile.js';
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 
 // %2F -> /
 
@@ -26,13 +27,26 @@ function App() {
     }
   };
 
+  const constFetchData = async () => {
+    if(loading === true || openfile === true) {
+      return;
+    }
+    try {
+      const response = await fetch('http://127.0.0.1:1337/api/getfoldercontent/' + path);
+      const data = await response.json();
+      setFiles(data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
   const openTXTFile = async (filename) => {
     try {
       setopenfile(true);
       setopenfiledata(null);
       setopenfilename(filename);
       var apath = "";
-      if(path == "null") {
+      if(path === "null") {
         apath = filename;
       } else {
         apath = path + "%2F" + filename;
@@ -58,7 +72,7 @@ function App() {
       setopenfiledata(null);
       setopenfilename(filename);
       var apath = "";
-      if(path == "null") {
+      if(path === "null") {
         apath = filename;
       } else {
         apath = path + "%2F" + filename;
@@ -78,38 +92,43 @@ function App() {
     }
   };
 
+  
+
   useEffect(() => {
     fetchData();
   }, [path]);
   
-  const handlePathChange = (newPath, fileext) => {
-    if(fileext != null) {
-      if(fileext != newPath) {
-        if(fileext === "txt") {
-          openTXTFile(newPath);
-        } else if(fileext === "jfif" || fileext === "jpg") {
-          openImageFile(newPath);
+  const handlePathChange = (newPath, fileext, filetype) => {
+    if(filetype === "folder") {
+      if(newPath === "..") {
+        if(path === "null") {
+          return;
         }
-        return;
-      }
-    }
-    if(newPath === "..") {
-      if(path === "null") {
-        return;
-      }
-      let newPath = path.split("%2F");
-      newPath.pop();
-      newPath = newPath.join("%2F");
-      if(newPath.length === 0) {
-        newPath = "null";
-      }
-      setPath(newPath);
-      return;
-    } else {
-      if(path === "null") {
+        let newPath = path.split("%2F");
+        newPath.pop();
+        newPath = newPath.join("%2F");
+        if(newPath.length === 0) {
+          newPath = "null";
+        }
         setPath(newPath);
+        return;
       } else {
-        setPath(path + "%2F" + newPath);
+        if(path === "null") {
+          setPath(newPath);
+        } else {
+          setPath(path + "%2F" + newPath);
+        }
+      }
+    } else {
+      if(fileext != null) {
+        if(fileext !== newPath) {
+          if(fileext === "txt") {
+            openTXTFile(newPath);
+          } else if(fileext === "jfif" || fileext === "jpg") {
+            openImageFile(newPath);
+          }
+          return;
+        }
       }
     }
   };
@@ -121,6 +140,7 @@ function App() {
     e.preventDefault();
     e.target.classList.remove("opacity-0");
     e.target.classList.add("opacity-90");
+    e.target.classList.add("z-50");
   };
   
   const handleDrop = async (e) => {
@@ -129,28 +149,21 @@ function App() {
     }
     e.preventDefault();
     e.target.classList.remove("opacity-90");
+    e.target.classList.remove("z-50");
     e.target.classList.add("opacity-0");
-    document.getElementById("fileinput").files = e.dataTransfer.files; 
-    const files = e.dataTransfer.files;
+
     const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append('files', files[i]);
-    }
+    formData.append('file', e.dataTransfer.files[0]);
     try {
-      const response = await fetch('http://127.0.0.1:1337/api/upload', {
-        method: 'POST',
-        body: formData
+      const response = await axios.post('http://127.0.0.1:1337/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
-      if (response.ok) {
-      } else {
-        console.error('Error uploading files:', response.status);
-      }
     } catch (error) {
-      console.error('Error uploading files:', error);
+      console.error('Error uploading file:', error);
     }
   };
-
-  
   
   const handleDragLeave = (e) => {
     if(e.target.id !== "dropzone") {
@@ -158,10 +171,11 @@ function App() {
     }
     e.preventDefault();
     e.target.classList.remove("opacity-90");
+    e.target.classList.remove("z-50");
     e.target.classList.add("opacity-0");
   };
 
-  if(loading == true) {
+  if(loading === true) {
     return (
       <>
       <header className="flex h-16 items-center justify-between px-6">
@@ -189,7 +203,7 @@ function App() {
     );
   }
 
-  if(openfile == true) {
+  if(openfile === true) {
     if(openfileext === "txt") {
       return (
         <>
@@ -239,7 +253,7 @@ function App() {
           </div>
           <main className="flex-1 overflow-auto p-6">
               <div className="bg-gray-900 rounded-lg p-4 flex flex-col gap-3 hover:cursor-pointer w-full">
-                <img src={"data:image/jpeg;base64," + openfiledata} className='w-full bg-no-repeat bg-contain'></img>
+                <img src={"data:image/jpeg;base64," + openfiledata} className='w-full bg-no-repeat bg-contain' alt='image'></img>
             </div>
           </main>
         </>
@@ -258,12 +272,14 @@ function App() {
     >
       <UploadIcon className='pointer-events-none text-white'></UploadIcon>
       <h1 className='pointer-events-none'>Drop your files here :)</h1>
-      <input
-        type='file'
-        multiple
-        className='pointer-events-none last-of-type:hidden'
-        id="fileinput"
-      />
+      <form id='uploadForm'>
+        <input
+          type='file'
+          multiple
+          className='pointer-events-none last-of-type:hidden'
+          id="fileinput"
+        />
+      </form>
     </div>
     <header className="flex h-16 items-center justify-between px-6">
       <div className="text-lg font-semibold text-gray-50">Weke Storage</div>
@@ -284,12 +300,12 @@ function App() {
     <main className="flex-1 overflow-auto p-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {path !== "null" ? 
-          <div onClick={() => handlePathChange("..", null)}>
+          <div onClick={() => handlePathChange("..", null, "folder")}>
           <NoFile></NoFile>
           </div>
             : null}
           {files.map((file, index) => (
-            <div onClick={() => handlePathChange(file.name, file.ext)}>
+            <div onClick={() => handlePathChange(file.name, file.ext, file.type)}>
               <File name={file.name} createdAt={file.createdAt} size={file.size} type={file.type}></File>
             </div>
           ))}

@@ -100,6 +100,7 @@ function App() {
   
   const handlePathChange = (newPath, fileext, filetype) => {
     if(filetype === "folder") {
+      setFiles([]);
       if(newPath === "..") {
         if(path === "null") {
           return;
